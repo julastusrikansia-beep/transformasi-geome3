@@ -71,14 +71,6 @@ function acakArray(arr) {
   return hasil;
 }
 
-// Mengacak urutan opsi jawaban pada sebuah soal,
-// lalu memperbarui jawabanIndex agar tetap menunjuk ke jawaban yang benar
-function acakOpsiSoal(soal) {
-  const jawabanTeks = soal.opsi[soal.jawabanIndex];
-  const opsiAcak = acakArray(soal.opsi);
-  return { ...soal, opsi: opsiAcak, jawabanIndex: opsiAcak.indexOf(jawabanTeks) };
-}
-
 // ==========================================================================
 // 2. FUNGSI PEMILIHAN TINGKAT KESULITAN KUIS
 // ==========================================================================
@@ -97,13 +89,10 @@ function pilihLevel(level) {
     return;
   }
 
-  // Acak soal lalu ambil sejumlah JUMLAH_SOAL[level],
-  // kemudian acak pula urutan opsi jawaban tiap soal
+  // Acak soal lalu ambil sejumlah JUMLAH_SOAL[level]
   const jumlah = JUMLAH_SOAL[level] || semuaSoal.length;
   const soalAcak = acakArray(semuaSoal);
-  dataKuisAktif = soalAcak
-    .slice(0, Math.min(jumlah, soalAcak.length))
-    .map(acakOpsiSoal);
+  dataKuisAktif = soalAcak.slice(0, Math.min(jumlah, soalAcak.length));
 
   // Inisialisasi ulang state kuis
   jawabanUser = Array(dataKuisAktif.length).fill(null);
@@ -309,14 +298,66 @@ function selesaikanKuis() {
     if (jawabanUser[i] === null) belumDijawab++;
   });
 
+  const jumlahSalah = dataKuisAktif.length - jumlahBenar - belumDijawab;
   const totalSkor = Math.round((jumlahBenar / dataKuisAktif.length) * 100);
 
   areaGame.style.display = "none";
   hasilContainer.style.display = "block";
 
   nilaiSkor.innerText = totalSkor;
-  const jumlahSalah = dataKuisAktif.length - jumlahBenar - belumDijawab;
   detailStat.innerHTML = `Benar: <b>${jumlahBenar}</b> | Salah: <b>${jumlahSalah}</b> ${belumDijawab > 0 ? `| Belum Dijawab: <b>${belumDijawab}</b>` : ''}`;
+
+  // Tampilkan tombol Ulang Materi jika ada jawaban salah atau soal yang belum dijawab
+  const adaKesalahan = jumlahSalah > 0 || belumDijawab > 0;
+  tampilkanTombolUlangMateri(adaKesalahan);
+}
+
+// ==========================================================================
+// 7. FUNGSI TOMBOL ULANG MATERI (muncul jika ada jawaban salah)
+// ==========================================================================
+function tampilkanTombolUlangMateri(tampilkan) {
+  // Hapus tombol lama jika ada
+  const tombolLama = document.getElementById('btn-ulang-materi');
+  if (tombolLama) tombolLama.remove();
+
+  if (!tampilkan) return;
+
+  const tombol = document.createElement('a');
+  tombol.id = 'btn-ulang-materi';
+  tombol.href = '01-1-materi-pengantar.html';
+  tombol.innerHTML = '📖 Ulang Materi';
+  tombol.style.cssText = `
+    display: inline-block;
+    margin-top: 12px;
+    padding: 13px 28px;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px;
+    text-decoration: none;
+    box-shadow: 0 4px 0 #922b21, 0 6px 16px rgba(231,76,60,0.35);
+    transition: all 0.18s ease;
+    letter-spacing: 0.3px;
+  `;
+
+  tombol.onmouseover = () => {
+    tombol.style.transform = 'translateY(-2px)';
+    tombol.style.boxShadow = '0 6px 0 #922b21, 0 10px 24px rgba(231,76,60,0.45)';
+  };
+  tombol.onmouseout = () => {
+    tombol.style.transform = 'translateY(0)';
+    tombol.style.boxShadow = '0 4px 0 #922b21, 0 6px 16px rgba(231,76,60,0.35)';
+  };
+
+  // Sisipkan setelah tombol Main Lagi
+  const tombolMainLagi = hasilContainer.querySelector('.level-btn');
+  if (tombolMainLagi) {
+    tombolMainLagi.insertAdjacentElement('afterend', tombol);
+  } else {
+    hasilContainer.appendChild(tombol);
+  }
 }
 
 // Fungsi ketika tombol SELESAI ditekan
@@ -330,6 +371,10 @@ finishBtn.onclick = () => {
 function ulangiKuis() {
   hasilContainer.style.display = "none";
   menuKesulitan.style.display = "block";
+
+  // Bersihkan tombol ulang materi agar tidak muncul saat halaman hasil dibuka lagi
+  const tombolUlang = document.getElementById('btn-ulang-materi');
+  if (tombolUlang) tombolUlang.remove();
 }
 
 
