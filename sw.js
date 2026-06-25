@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geometri-v12';
+const CACHE_NAME = 'geometri-v13';
 
 const assetsToCache = [
   '/',
