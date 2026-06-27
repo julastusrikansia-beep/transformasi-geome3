@@ -334,6 +334,8 @@ body{
 
 /* Kotak Kartu Pilihan */
 .level-card {
+  position: relative;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 15px;
@@ -561,6 +563,105 @@ body{
 }
 
 /* ============================================================
+   WAKTU PENGERJAAN KUIS (20 MENIT PER LEVEL)
+   ============================================================ */
+.kuis-top-info {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.kuis-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 50px;
+  background: rgba(15, 82, 186, 0.18);
+  border: 1px solid rgba(15, 82, 186, 0.4);
+  color: #9fd3ff;
+  font-family: 'Russo One', sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.kuis-timer.waktu-kritis {
+  background: rgba(220, 53, 69, 0.2);
+  border-color: rgba(220, 53, 69, 0.55);
+  color: #ff8a8a;
+  animation: kuisTimerKedip 1s ease-in-out infinite;
+}
+
+@keyframes kuisTimerKedip {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ============================================================
+   KESEMPATAN & KUNCI LEVEL (3x percobaan, cooldown 5 menit)
+   ============================================================ */
+.level-kesempatan-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  border-radius: 50px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.level-card.terkunci {
+  cursor: not-allowed;
+}
+
+.level-card.terkunci .level-img,
+.level-card.terkunci .level-btn {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.level-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(5, 10, 30, 0.82);
+  backdrop-filter: blur(2px);
+  border-radius: inherit;
+  z-index: 3;
+  text-align: center;
+  padding: 10px;
+}
+
+.level-lock-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.level-lock-teks {
+  color: rgba(255,255,255,0.75);
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 11px;
+}
+
+.level-lock-waktu {
+  color: #ffd166;
+  font-family: 'Russo One', sans-serif;
+  font-size: 18px;
+}
+
+/* ============================================================
    MODAL KONFIRMASI SELESAI
    ============================================================ */
 #modal-konfirmasi {
@@ -686,4 +787,315 @@ body{
   .modal-aksi {
     flex-direction: column;
   }
+}
+
+/* ============================================================
+   TOMBOL AKSI KUIS - Gaya btn-simulasi (Main Lagi, Ulang Materi)
+   ============================================================ */
+.hasil-tombol-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.btn-kuis-aksi {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  border-radius: 50px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.btn-kuis-aksi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.btn-kuis-aksi:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.btn-kuis-aksi:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.btn-kuis-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.btn-kuis-arrow {
+  font-size: 18px;
+  transition: transform 0.25s ease;
+}
+
+.btn-kuis-aksi:hover .btn-kuis-arrow {
+  transform: translateX(4px);
+}
+
+/* Main Lagi - biru teal seperti btn-simulasi */
+.btn-main-lagi {
+  background: linear-gradient(135deg, #00bcd4 0%, #0077b6 100%);
+  color: #fff;
+  box-shadow: 0 4px 24px rgba(0, 188, 212, 0.35);
+}
+
+.btn-main-lagi:hover {
+  box-shadow: 0 8px 36px rgba(0, 188, 212, 0.55);
+  background: linear-gradient(135deg, #26c6da 0%, #0096c7 100%);
+}
+
+/* Ulang Materi - merah coral */
+.btn-ulang-materi {
+  background: linear-gradient(135deg, #ff6b6b 0%, #c0392b 100%);
+  color: #fff;
+  box-shadow: 0 4px 24px rgba(231, 76, 60, 0.35);
+}
+
+.btn-ulang-materi:hover {
+  box-shadow: 0 8px 36px rgba(231, 76, 60, 0.55);
+  background: linear-gradient(135deg, #ff8a80 0%, #e74c3c 100%);
+}
+
+/* Mulai Kuis, Gaskan - hijau */
+.mulai-kuis-cta {
+  text-align: center;
+  margin-top: 28px;
+}
+
+.mulai-kuis-cta-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  margin-bottom: 10px;
+  font-family: 'Baloo 2', sans-serif;
+  letter-spacing: 0.3px;
+}
+
+.btn-mulai-kuis {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 36px;
+  border-radius: 50px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #00c853 0%, #00897b 100%);
+  color: #fff;
+  box-shadow: 0 4px 24px rgba(0, 200, 83, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.btn-mulai-kuis::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.btn-mulai-kuis:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 36px rgba(0, 200, 83, 0.55);
+  background: linear-gradient(135deg, #69f0ae 0%, #00acc1 100%);
+  color: #fff;
+}
+
+.btn-mulai-kuis:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.btn-mulai-kuis-icon,
+.btn-mulai-kuis-arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.btn-mulai-kuis-arrow {
+  transition: transform 0.25s ease;
+}
+
+.btn-mulai-kuis:hover .btn-mulai-kuis-arrow {
+  transform: translateX(4px);
+}
+
+/* ============================================================
+   NOTIFIKASI MODERN (pengganti alert)
+   ============================================================ */
+#notif-modern {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(24px);
+  z-index: 99999;
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.34, 1.45, 0.64, 1), opacity 0.3s ease;
+  pointer-events: none;
+  min-width: 300px;
+  max-width: 90vw;
+}
+
+#notif-modern.tampil {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.notif-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px 14px 16px;
+  background: linear-gradient(145deg, #0d1b3e, #0a1628);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 188, 212, 0.1);
+}
+
+.notif-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.notif-body {
+  flex: 1;
+}
+
+.notif-judul {
+  color: #fff;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.notif-pesan {
+  color: rgba(255,255,255,0.65);
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notif-pesan b {
+  color: #ffd166;
+}
+
+.notif-tutup {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.notif-tutup:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+/* ============================================================
+   LANDSCAPE HP - PERBAIKAN TOMBOL
+   ============================================================ */
+@media screen and (max-width: 960px) and (orientation: landscape) {
+  .hasil-tombol-group {
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 16px;
+  }
+
+  .btn-kuis-aksi {
+    padding: 11px 24px;
+    font-size: 14px;
+  }
+
+  .btn-mulai-kuis {
+    padding: 11px 28px;
+    font-size: 14px;
+  }
+
+  .mulai-kuis-cta {
+    margin-top: 16px;
+  }
+
+  #notif-modern {
+    bottom: 12px;
+    min-width: 260px;
+  }
+
+  .kuis-timer {
+    font-size: 12px;
+    padding: 5px 12px;
+  }
+
+  .kuis-top-info {
+    margin-bottom: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .btn-kuis-aksi {
+    font-size: 14px;
+    padding: 12px 24px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-mulai-kuis {
+    font-size: 14px;
+    padding: 12px 24px;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Level card selected state */
+.level-card.terpilih {
+  background: rgba(0, 188, 212, 0.15);
+  border-color: #00bcd4;
+  box-shadow: 0 0 0 2px rgba(0, 188, 212, 0.4), 0 10px 24px rgba(0, 0, 0, 0.3);
+  transform: translateY(-4px);
+}
+
+.level-card.terpilih .level-btn {
+  filter: brightness(1.15);
+}
+
+/* Gaskan button aktif state (after level selected) */
+.btn-mulai-kuis.aktif {
+  box-shadow: 0 6px 32px rgba(0, 200, 83, 0.5), 0 0 0 2px rgba(0, 200, 83, 0.3);
+  animation: gaskanPulse 2s ease-in-out infinite;
+}
+
+@keyframes gaskanPulse {
+  0%, 100% { box-shadow: 0 6px 32px rgba(0, 200, 83, 0.5), 0 0 0 2px rgba(0, 200, 83, 0.3); }
+  50% { box-shadow: 0 8px 40px rgba(0, 200, 83, 0.7), 0 0 0 4px rgba(0, 200, 83, 0.15); }
 }

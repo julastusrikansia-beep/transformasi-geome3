@@ -23,25 +23,27 @@
     <h2>Pilih Tingkat Kesulitan</h2>
     <div class="level-card-container">
         
-        <div class="level-card" onclick="pilihLevel('mudah')">
+        <div class="level-card" data-level="mudah" onclick="pilihLevel('mudah')">
             <img src="assets/img/mudah.jpg" alt="Mudah" class="level-img">
             <button class="level-btn mudah">Mudah</button>
         </div>
 
-        <div class="level-card" onclick="pilihLevel('sedang')">
+        <div class="level-card" data-level="sedang" onclick="pilihLevel('sedang')">
             <img src="assets/img/sedang.jpg" alt="Sedang" class="level-img">
             <button class="level-btn sedang">Sedang</button>
         </div>
 
-        <div class="level-card" onclick="pilihLevel('sulit')">
+        <div class="level-card" data-level="sulit" onclick="pilihLevel('sulit')">
             <img src="assets/img/sulit.jpg" alt="Sulit" class="level-img">
             <button class="level-btn sulit">Sulit</button>
         </div>
-
     </div>
 </div>
 
     <div id="area-game" style="display: none;">
+        <div class="kuis-top-info">
+            <div id="kuis-timer" class="kuis-timer">⏱ 20:00</div>
+        </div>
         <div id="materi" class="materi"></div>
         <div id="nomor" class="nomor"></div>
         <div id="soal" class="soal"></div>
@@ -60,7 +62,13 @@
             <span id="nilai-skor">0</span>
         </div>
         <p id="detail-stat"></p>
-        <button class="level-btn" onclick="ulangiKuis()" style="background: #0F52BA; margin-top: 20px;">Main Lagi</button>
+        <div class="hasil-tombol-group">
+            <button class="btn-kuis-aksi btn-main-lagi" onclick="ulangiKuis()">
+                <span class="btn-kuis-icon">🔄</span>
+                Main Lagi
+                <span class="btn-kuis-arrow">→</span>
+            </button>
+        </div>
     </div>
 
 </div>

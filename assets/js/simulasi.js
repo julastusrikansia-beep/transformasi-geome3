@@ -1,3 +1,37 @@
+
+// Tandai bahwa pengguna sudah masuk ke halaman Simulasi, dipakai oleh halaman
+// Main Menu untuk menentukan notifikasi modern yang tampil saat kembali.
+sessionStorage.setItem('gv_section_visited', '1');
+
+// ============================================================
+// NOTIFIKASI MODERN (pengganti alert)
+// ============================================================
+function tampilToast(icon, judul, pesan) {
+    const lama = document.getElementById('sim-toast');
+    if (lama) { lama.remove(); }
+
+    const toast = document.createElement('div');
+    toast.id = 'sim-toast';
+    toast.innerHTML = `
+        <div class="sim-toast-card">
+            <span class="sim-toast-icon">${icon}</span>
+            <div class="sim-toast-body">
+                <div class="sim-toast-judul">${judul}</div>
+                ${pesan ? `<div class="sim-toast-pesan">${pesan}</div>` : ''}
+            </div>
+            <button class="sim-toast-close" onclick="this.closest('#sim-toast').remove()">✕</button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => toast.classList.add('tampil'));
+    });
+    setTimeout(() => {
+        toast.classList.remove('tampil');
+        setTimeout(() => toast.remove(), 380);
+    }, 3000);
+}
+
 // ==========================================
 // 1. ELEMENT HTML
 // ==========================================
@@ -291,7 +325,7 @@ const REFLEKSI_LATEX = {
 
 function parsePecahan(input) {
     const str = (input === null || input === undefined) ? "" : String(input).trim();
-    if (str === "") return { value: 0, latex: "0", teks: "0" };
+    if (str === "" || str === "-") return { value: 0, latex: "0", teks: "0" };
 
     if (str.includes("/")) {
         const bagian = str.split("/");
@@ -534,6 +568,112 @@ function gambarTitikPusatRotasiDanDilatasi() {
     }
 }
 
+function gambarPanahRotasi() {
+    if (transformasiAktif !== "rotasi") return;
+    const sudutInput = ambilNilai("nilaiSudut");
+    if (sudutInput === 0) return;
+    if (objekAwal.length === 0 || objekHasil.length === 0) return;
+
+    const px = ambilNilai("nilaiA");
+    const py = ambilNilai("nilaiB");
+    const pusat = mathToCanvas(px, py);
+
+    const berlawananArahJarumJam = sudutInput >= 0;
+    const absSudut = Math.abs(sudutInput);
+    const jumlahTitik = Math.min(objekAwal.length, objekHasil.length);
+
+    // Kumpulkan data tiap titik: sudut canvas + jarak ke pusat
+    const dataTitik = [];
+    for (let i = 0; i < jumlahTitik; i++) {
+        if (!objekAwal[i] || !objekHasil[i]) continue;
+        const p1 = mathToCanvas(objekAwal[i].x, objekAwal[i].y);
+        const p2 = mathToCanvas(objekHasil[i].x, objekHasil[i].y);
+        const dx1 = p1.x - pusat.x, dy1 = p1.y - pusat.y;
+        const dx2 = p2.x - pusat.x, dy2 = p2.y - pusat.y;
+        const jarak = Math.sqrt(dx1*dx1 + dy1*dy1);
+        if (jarak < 5) continue;
+        dataTitik.push({
+            i,
+            sudutAwal: Math.atan2(dy1, dx1),
+            sudutAkhir: Math.atan2(dy2, dx2),
+            jarak
+        });
+    }
+
+    if (dataTitik.length === 0) return;
+
+    // Urutkan berdasarkan jarak (terdekat duluan) agar radius busur tidak tabrakan
+    dataTitik.sort((a, b) => a.jarak - b.jarak);
+
+    // Tentukan titik terpilih untuk label: yang paling jauh dari pusat (paling jelas)
+    const idxLabel = dataTitik.length - 1;
+
+    // Radius busur proporsional terhadap gridSize agar ukuran tetap saat zoom in/out
+    // Kita ingin busur berukuran ~0.7 satuan grid untuk busur terkecil, naik 0.5 per titik
+    const R_MIN = Math.max(20, gridSize * 0.65);
+    const R_STEP = Math.max(14, gridSize * 0.45); // jarak antar busur agar tidak berdempet
+
+    dataTitik.forEach((t, idx) => {
+        const R = R_MIN + idx * R_STEP;
+
+        // Gambar busur
+        ctx.save();
+        ctx.strokeStyle = "#A855F7";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(pusat.x, pusat.y, R, t.sudutAwal, t.sudutAkhir, berlawananArahJarumJam);
+        ctx.stroke();
+        ctx.restore();
+
+        // Kepala panah di ujung busur
+        const ujungX = pusat.x + R * Math.cos(t.sudutAkhir);
+        const ujungY = pusat.y + R * Math.sin(t.sudutAkhir);
+        const arahTangensial = t.sudutAkhir + (berlawananArahJarumJam ? -Math.PI / 2 : Math.PI / 2);
+
+        ctx.save();
+        ctx.translate(ujungX, ujungY);
+        ctx.rotate(arahTangensial);
+        ctx.fillStyle = "#A855F7";
+        ctx.beginPath();
+        ctx.moveTo(0, -8);
+        ctx.lineTo(-4, 0);
+        ctx.lineTo(4, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Hitung sudut tengah busur untuk posisi label
+        let sudutTengah;
+        if (berlawananArahJarumJam) {
+            let delta = t.sudutAwal - t.sudutAkhir;
+            if (delta <= 0) delta += 2 * Math.PI;
+            sudutTengah = t.sudutAwal - delta / 2;
+        } else {
+            let delta = t.sudutAkhir - t.sudutAwal;
+            if (delta <= 0) delta += 2 * Math.PI;
+            sudutTengah = t.sudutAwal + delta / 2;
+        }
+
+        // Label sudut di LUAR busur terluar (di atas garis busur), warna hitam
+        if (idx === idxLabel) {
+            const labelR = R + 20; // di luar busur agar berada di atas garis panah
+            const labelX = pusat.x + labelR * Math.cos(sudutTengah);
+            const labelY = pusat.y + labelR * Math.sin(sudutTengah);
+            tampilkanLabelMath("rotasiSudutLabel", labelX, labelY, absSudut + "^{\\circ}", "#000000");
+        } else {
+            // Sembunyikan label untuk busur dalam
+            const key = "rotasiSudutLabel_" + idx;
+            if (labelPoolTitik[key]) labelPoolTitik[key].el.style.display = "none";
+        }
+    });
+
+    // Sembunyikan label lama yang mungkin tersisa dari iterasi sebelumnya
+    for (let k = 0; k < 20; k++) {
+        const key = "rotasiSudutLabel_" + k;
+        if (labelPoolTitik[key]) labelPoolTitik[key].el.style.display = "none";
+    }
+}
 function gambarPoligon(data = titikObjek, warna = "#000000", bayangan = false, kindKey = "objek") {
     if (data.length === 0) return;
 
@@ -762,7 +902,7 @@ function animasikanTransformasi(targetPoints, durasi = 1500) {
 
 function animasiDariRiwayat(durasi = 1500) {
     if (stateAwalTransformasi.length === 0 || stateHasilTransformasi.length === 0) {
-        alert("Lakukan transformasi (klik TERAPKAN) terlebih dahulu"); return;
+        tampilToast("⚠️", "Belum Ada Transformasi", "Klik TERAPKAN dahulu sebelum animasi."); return;
     }
     titikObjek = stateAwalTransformasi.map(t => ({ x: t.x, y: t.y }));
     objekAwal = stateAwalTransformasi.map(t => ({ x: t.x, y: t.y }));
@@ -886,6 +1026,7 @@ function drawCartesian() {
 
     gambarGarisCerminK();
     gambarTitikPusatRotasiDanDilatasi();
+    gambarPanahRotasi();
 
     if (showCoords) {
         const startGridX = originX % gridSize; const startGridY = originY % gridSize;
@@ -1254,7 +1395,7 @@ document.getElementById("btnTerapkan")?.addEventListener("click", () => {
     const sudut = ambilNilai("nilaiSudut");
     const k = ambilNilai("nilaiK");
 
-    if (titikObjek.length < 1) { alert("Buat objek atau titik terlebih dahulu"); return; }
+    if (titikObjek.length < 1) { tampilToast("✏️", "Canvas Masih Kosong", "Double klik canvas untuk membuat titik."); return; }
     
     stateAwalTransformasi = titikObjek.map(t => ({ x: t.x, y: t.y }));
 
@@ -1275,7 +1416,7 @@ document.getElementById("btnTerapkan")?.addEventListener("click", () => {
             const pB = ambilNilai("dilatasiB");
             dilatasi(a, pA, pB); 
             break;
-        default: alert("Pilih transformasi terlebih dahulu");
+        default: tampilToast("🔧", "Pilih Transformasi", "Pilih jenis transformasi dari dropdown dahulu."); return;
     }
     
     stateHasilTransformasi = objekHasil.map(t => ({ x: t.x, y: t.y }));
@@ -1324,13 +1465,29 @@ document.getElementById("btnReset")?.addEventListener("click", () => {
     titikObjek = []; objekAwal = []; objekHasil = []; bentukSelesai = false; transformasiAktif = null;
     undoStack = []; redoStack = []; updateUndoRedoBtn();
     document.getElementById("btnLabel").textContent = "Pilih Transformasi";
-    document.getElementById("nilaiA").value = 0; document.getElementById("nilaiB").value = 0;
-    document.getElementById("nilaiSudut").value = 0;
-    if (document.getElementById("nilaiK")) document.getElementById("nilaiK").value = 0;
-    if (document.getElementById("dilatasiA")) document.getElementById("dilatasiA").value = 0;
-    if (document.getElementById("dilatasiB")) document.getElementById("dilatasiB").value = 0;
+    document.getElementById("nilaiA").value = ""; document.getElementById("nilaiB").value = "";
+    document.getElementById("nilaiSudut").value = "";
+    if (document.getElementById("nilaiK")) document.getElementById("nilaiK").value = "";
+    if (document.getElementById("dilatasiA")) document.getElementById("dilatasiA").value = "";
+    if (document.getElementById("dilatasiB")) document.getElementById("dilatasiB").value = "";
 
     stateAwalTransformasi = []; stateHasilTransformasi = [];
+
+    // Update overlay LaTeX agar tampilan input ikut bersih (kembali ke placeholder "0")
+    ['nilaiA','nilaiB','nilaiSudut','nilaiK','dilatasiA','dilatasiB'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = "";
+            const ovId = { nilaiA:'overlayA', nilaiB:'overlayB', nilaiSudut:'overlaySudut',
+                           nilaiK:'overlayK', dilatasiA:'overlayDilatasiA', dilatasiB:'overlayDilatasiB' }[id];
+            if (ovId) { 
+                const ov = document.getElementById(ovId);
+                if (ov) ov.style.visibility = 'visible';
+                updateInputOverlay(id, ovId);
+            }
+        }
+    });
+
     latexAwal.innerHTML = ""; latexHasil.innerHTML = ""; updateParameterLatex();
     setLabelLatex(document.getElementById("labelA"), "a\\ (\\text{sumbu-}x)");
     setLabelLatex(document.getElementById("labelB"), "b\\ (\\text{sumbu-}y)");
@@ -1403,7 +1560,7 @@ window.addEventListener("click", function(event) {
 document.getElementById("nilaiK")?.addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("nilaiK", "previewK"); });
 document.getElementById("nilaiA").addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("nilaiA", "previewA"); });
 document.getElementById("nilaiB").addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("nilaiB", "previewB"); });
-document.getElementById("nilaiSudut").addEventListener("input", () => { updateParameterLatex(); updateInputPreview("nilaiSudut", "previewSudut"); });
+document.getElementById("nilaiSudut").addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("nilaiSudut", "previewSudut"); });
 document.getElementById("dilatasiA")?.addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("dilatasiA", "previewDilatasiA"); });
 document.getElementById("dilatasiB")?.addEventListener("input", () => { updateParameterLatex(); drawCartesian(); updateInputPreview("dilatasiB", "previewDilatasiB"); });
 updateSemuaPreview();
@@ -1470,11 +1627,11 @@ function updateInputOverlay(inputId, overlayId) {
     if (!input || !overlay) return;
 
     const val = input.value.trim();
-    let latexStr = val || '0';
+    // Jika kosong atau hanya tanda minus, tampilkan "0" sebagai placeholder LaTeX
+    let latexStr = (val === "" || val === "-") ? '0' : val;
 
     // Konversi pecahan sederhana mis. 3/2 → \frac{3}{2}
     latexStr = latexStr.replace(/(-?\d+)\s*\/\s*(-?\d+)/g, '\\frac{$1}{$2}');
-    // Konversi bilangan negatif mis. -3 → -3 (tetap, sudah valid LaTeX)
 
     overlay.innerHTML = `\\(${latexStr}\\)`;
     if (window.MathJax && MathJax.typesetPromise) {
@@ -1487,17 +1644,27 @@ function setupOverlayInput(inputId, overlayId) {
     const overlay = document.getElementById(overlayId);
     if (!input || !overlay) return;
 
-    // Saat blur: update dan tampilkan LaTeX overlay
+    // Kosongkan nilai default saat init agar tampilan bersih (overlay LaTeX tampil "0")
+    input.value = "";
+
+    // Saat focus: sembunyikan overlay, user ketik langsung; select-all
+    input.addEventListener('focus', () => {
+        if (overlay) overlay.style.visibility = 'hidden';
+        setTimeout(() => input.select(), 0);
+    });
+
+    // Saat blur: tampilkan kembali overlay LaTeX
     input.addEventListener('blur', () => {
+        if (overlay) overlay.style.visibility = 'visible';
         updateInputOverlay(inputId, overlayId);
     });
 
-    // Update live saat mengetik (opsional — untuk preview real-time)
+    // Update live saat mengetik
     input.addEventListener('input', () => {
         updateInputOverlay(inputId, overlayId);
     });
 
-    // Init: render nilai awal
+    // Init: render nilai awal (tampil "0" karena value kosong)
     updateInputOverlay(inputId, overlayId);
 }
 
@@ -1516,3 +1683,55 @@ if (window.MathJax) {
 } else {
     window.addEventListener('load', () => setTimeout(initAllOverlays, 800));
 }
+
+// ==========================================
+// PERBAIKAN INPUT FIELD: klik di mana saja bisa fokus
+// ==========================================
+(function fixInputClickArea() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Pastikan wrapper input mengisi penuh dan kursor tetap teks */
+        .input-wrapper, .input-group {
+            cursor: text !important;
+        }
+        /* Input harus mengisi seluruh area wrapper */
+        .input-wrapper input[type="number"],
+        .input-wrapper input[type="text"],
+        .param-input,
+        #nilaiA, #nilaiB, #nilaiSudut, #nilaiK, #dilatasiA, #dilatasiB {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            cursor: text !important;
+        }
+        /* Overlay LaTeX juga bisa diklik dan diteruskan ke input */
+        .input-overlay, [id^="overlay"] {
+            pointer-events: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Tambahkan click handler pada semua parent container input parameter
+    // agar klik di mana saja dalam kotak akan memfokuskan input
+    const inputIds = ['nilaiA', 'nilaiB', 'nilaiSudut', 'nilaiK', 'dilatasiA', 'dilatasiB'];
+    inputIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        // Select-all saat input itu sendiri diklik langsung
+        input.addEventListener('click', () => {
+            setTimeout(() => input.select(), 0);
+        });
+
+        // Cari parent terdekat yang merupakan container parameter (group/row)
+        let container = input.closest('.input-wrapper') || input.closest('.param-row') || input.parentElement;
+        if (container && container !== input) {
+            container.style.cursor = 'text';
+            container.addEventListener('click', (e) => {
+                if (e.target !== input) {
+                    input.focus();
+                    setTimeout(() => input.select(), 0);
+                }
+            });
+        }
+    });
+})();

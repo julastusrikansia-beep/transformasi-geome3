@@ -13,7 +13,7 @@ const assetsToCache = [
   '/02-simulasi.html',
   '/03-kuis.html',
 
-  // Versi Tanpa .html (Untuk Netlify Pretty URLs)
+  // Versi Tanpa .html
   '/01-1-materi-pengantar',
   '/01-1-1-translasi',
   '/01-1-2-refleksi',

@@ -5,6 +5,151 @@ let seluruhDataKuis = null;
 let dataKuisAktif = [];     
 let indeksSekarang = 0;     
 let jawabanUser = [];       
+let levelAktif = null;
+
+// Tandai bahwa pengguna sudah masuk ke halaman Kuis, dipakai oleh halaman
+// Main Menu untuk menentukan notifikasi modern yang tampil saat kembali.
+sessionStorage.setItem('gv_section_visited', '1');
+
+// ==========================================================================
+// SISTEM WAKTU PENGERJAAN & KESEMPATAN PER LEVEL
+// ==========================================================================
+const DURASI_KUIS_DETIK = 20 * 60;     // Waktu pengerjaan tiap level: 20 menit
+const MAKS_KESEMPATAN = 3;             // Maksimal 3 kali percobaan tiap level
+const DURASI_COOLDOWN_DETIK = 5 * 60;  // Waktu tunggu reset kesempatan: 5 menit
+const KEY_KESEMPATAN = 'gv_kuis_kesempatan';
+
+function muatStatusKesempatan() {
+  try {
+    return JSON.parse(localStorage.getItem(KEY_KESEMPATAN)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function simpanStatusKesempatan(semua) {
+  localStorage.setItem(KEY_KESEMPATAN, JSON.stringify(semua));
+}
+
+function ambilStatusLevel(level) {
+  const semua = muatStatusKesempatan();
+  return semua[level] || { sisa: MAKS_KESEMPATAN, lockUntil: null };
+}
+
+function perbaruiStatusLevel(level, data) {
+  const semua = muatStatusKesempatan();
+  semua[level] = data;
+  simpanStatusKesempatan(semua);
+}
+
+// Jika waktu cooldown levelnya sudah lewat, otomatis kembalikan kesempatan jadi penuh
+function segarkanStatusLevel(level) {
+  const semua = muatStatusKesempatan();
+  let data = semua[level] || { sisa: MAKS_KESEMPATAN, lockUntil: null };
+  if (data.lockUntil && Date.now() >= data.lockUntil) {
+    data = { sisa: MAKS_KESEMPATAN, lockUntil: null };
+    semua[level] = data;
+    simpanStatusKesempatan(semua);
+  }
+  return data;
+}
+
+function labelLevel(level) {
+  return level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+function formatMenitDetik(totalDetik) {
+  const d = Math.max(0, Math.ceil(totalDetik));
+  const m = Math.floor(d / 60);
+  const s = d % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Perbarui tampilan badge kesempatan & overlay kunci pada kartu level
+function perbaruiTampilanLevel(level, status) {
+  const card = document.querySelector(`.level-card[data-level="${level}"]`);
+  if (!card) return;
+
+  let badge = card.querySelector('.level-kesempatan-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'level-kesempatan-badge';
+    card.appendChild(badge);
+  }
+
+  const terkunci = !!(status.lockUntil && Date.now() < status.lockUntil);
+
+  if (terkunci) {
+    badge.textContent = '🔒 Terkunci';
+    card.classList.add('terkunci');
+
+    let overlay = card.querySelector('.level-lock-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'level-lock-overlay';
+      overlay.innerHTML = `
+        <div class="level-lock-icon">🔒</div>
+        <div class="level-lock-teks">Kesempatan habis, tunggu</div>
+        <div class="level-lock-waktu" data-waktu></div>
+      `;
+      card.appendChild(overlay);
+    }
+    const sisaDetik = Math.max(0, Math.ceil((status.lockUntil - Date.now()) / 1000));
+    const elWaktu = overlay.querySelector('[data-waktu]');
+    if (elWaktu) elWaktu.textContent = formatMenitDetik(sisaDetik);
+  } else {
+    badge.textContent = `💪 ${status.sisa}/${MAKS_KESEMPATAN}`;
+    card.classList.remove('terkunci');
+    const overlay = card.querySelector('.level-lock-overlay');
+    if (overlay) overlay.remove();
+  }
+}
+
+function renderStatusSemuaLevel() {
+  ['mudah', 'sedang', 'sulit'].forEach(level => {
+    const status = segarkanStatusLevel(level);
+    perbaruiTampilanLevel(level, status);
+  });
+}
+
+// ==========================================================================
+// TIMER PENGERJAAN KUIS (20 MENIT PER LEVEL)
+// ==========================================================================
+let waktuTersisaKuis = DURASI_KUIS_DETIK;
+let timerKuisInterval = null;
+
+function perbaruiTampilanTimer() {
+  const kuisTimerEl = document.getElementById('kuis-timer');
+  if (!kuisTimerEl) return;
+  kuisTimerEl.innerHTML = `⏱ ${formatMenitDetik(waktuTersisaKuis)}`;
+  kuisTimerEl.classList.toggle('waktu-kritis', waktuTersisaKuis <= 60);
+}
+
+function mulaiTimerKuis() {
+  hentikanTimerKuis();
+  waktuTersisaKuis = DURASI_KUIS_DETIK;
+  perbaruiTampilanTimer();
+  timerKuisInterval = setInterval(() => {
+    waktuTersisaKuis--;
+    perbaruiTampilanTimer();
+    if (waktuTersisaKuis <= 0) {
+      waktuHabisKuis();
+    }
+  }, 1000);
+}
+
+function hentikanTimerKuis() {
+  if (timerKuisInterval) {
+    clearInterval(timerKuisInterval);
+    timerKuisInterval = null;
+  }
+}
+
+function waktuHabisKuis() {
+  hentikanTimerKuis();
+  tampilkanNotifModern('⏰', 'Waktu Habis!', 'Waktu pengerjaan 20 menit untuk level ini sudah selesai.<br>Jawabanmu otomatis dikumpulkan.');
+  setTimeout(() => { selesaikanKuis(); }, 700);
+}
 
 // ==========================================================================
 // AMBIL ELEMEN-ELEMEN HTML
@@ -76,7 +221,7 @@ function acakArray(arr) {
 // ==========================================================================
 function pilihLevel(level) {
   if (!seluruhDataKuis) {
-    alert("Data kuis belum siap atau gagal dimuat. Silakan muat ulang halaman.");
+    tampilkanNotifModern('⚠️', 'Data Belum Siap', 'Data kuis belum siap atau gagal dimuat.<br>Silakan muat ulang halaman.', false);
     return;
   }
   
@@ -85,9 +230,32 @@ function pilihLevel(level) {
   
   // Jika level kosong atau tidak ditemukan datanya
   if (!semuaSoal || semuaSoal.length === 0) {
-    alert(`Maaf, soal untuk tingkat kesulitan "${level}" belum tersedia.`);
+    tampilkanNotifModern('❌', 'Level Tidak Tersedia', `Maaf, soal untuk tingkat kesulitan <b>${level}</b> belum tersedia.`, false);
     return;
   }
+
+  // Cek kesempatan & status cooldown level ini sebelum memulai
+  const status = segarkanStatusLevel(level);
+  renderStatusSemuaLevel();
+
+  if (status.lockUntil && Date.now() < status.lockUntil) {
+    const sisaDetik = Math.max(0, Math.ceil((status.lockUntil - Date.now()) / 1000));
+    tampilkanNotifModern('⏳', 'Kesempatan Sedang Diisi Ulang', `Kesempatan level <b>${labelLevel(level)}</b> sudah habis.<br>Coba lagi dalam <b>${formatMenitDetik(sisaDetik)}</b>.`, false);
+    return;
+  }
+
+  if (status.sisa <= 0) {
+    // Jaga-jaga: kesempatan habis tapi cooldown belum tersimpan, kunci sekarang
+    perbaruiStatusLevel(level, { sisa: 0, lockUntil: Date.now() + DURASI_COOLDOWN_DETIK * 1000 });
+    renderStatusSemuaLevel();
+    tampilkanNotifModern('⏳', 'Kesempatan Habis', `Kesempatan level <b>${labelLevel(level)}</b> sudah habis.<br>Tunggu 5 menit untuk mencoba lagi.`, false);
+    return;
+  }
+
+  // Gunakan satu kesempatan untuk percobaan kali ini
+  perbaruiStatusLevel(level, { sisa: status.sisa - 1, lockUntil: null });
+  renderStatusSemuaLevel();
+  levelAktif = level;
 
   // Acak soal lalu ambil sejumlah JUMLAH_SOAL[level]
   const jumlah = JUMLAH_SOAL[level] || semuaSoal.length;
@@ -102,6 +270,9 @@ function pilihLevel(level) {
   menuKesulitan.style.display = "none";
   hasilContainer.style.display = "none";
   areaGame.style.display = "block";
+
+  // Mulai hitung mundur waktu pengerjaan 20 menit untuk level ini
+  mulaiTimerKuis();
   
   // Tampilkan soal pertama
   tampilkanSoal();
@@ -290,6 +461,8 @@ function tutupModal() {
 }
 
 function selesaikanKuis() {
+  hentikanTimerKuis();
+
   let jumlahBenar = 0;
   let belumDijawab = 0;
 
@@ -300,6 +473,15 @@ function selesaikanKuis() {
 
   const jumlahSalah = dataKuisAktif.length - jumlahBenar - belumDijawab;
   const totalSkor = Math.round((jumlahBenar / dataKuisAktif.length) * 100);
+
+  // Jika percobaan ini adalah kesempatan terakhir, mulai hitung mundur 5 menit untuk reset
+  if (levelAktif) {
+    const status = ambilStatusLevel(levelAktif);
+    if (status.sisa <= 0 && !status.lockUntil) {
+      perbaruiStatusLevel(levelAktif, { sisa: 0, lockUntil: Date.now() + DURASI_COOLDOWN_DETIK * 1000 });
+    }
+    renderStatusSemuaLevel();
+  }
 
   areaGame.style.display = "none";
   hasilContainer.style.display = "block";
@@ -325,36 +507,15 @@ function tampilkanTombolUlangMateri(tampilkan) {
   const tombol = document.createElement('a');
   tombol.id = 'btn-ulang-materi';
   tombol.href = '01-1-materi-pengantar.html';
-  tombol.innerHTML = '📖 Ulang Materi';
-  tombol.style.cssText = `
-    display: inline-block;
-    margin-top: 12px;
-    padding: 13px 28px;
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
-    color: #fff;
-    font-family: 'Baloo 2', sans-serif;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 10px;
-    text-decoration: none;
-    box-shadow: 0 4px 0 #922b21, 0 6px 16px rgba(231,76,60,0.35);
-    transition: all 0.18s ease;
-    letter-spacing: 0.3px;
-  `;
+  tombol.className = 'btn-kuis-aksi btn-ulang-materi';
+  tombol.innerHTML = '<span class="btn-kuis-icon">📖</span> Ulang Materi <span class="btn-kuis-arrow">→</span>';
 
-  tombol.onmouseover = () => {
-    tombol.style.transform = 'translateY(-2px)';
-    tombol.style.boxShadow = '0 6px 0 #922b21, 0 10px 24px rgba(231,76,60,0.45)';
-  };
-  tombol.onmouseout = () => {
-    tombol.style.transform = 'translateY(0)';
-    tombol.style.boxShadow = '0 4px 0 #922b21, 0 6px 16px rgba(231,76,60,0.35)';
-  };
-
-  // Sisipkan setelah tombol Main Lagi
-  const tombolMainLagi = hasilContainer.querySelector('.level-btn');
-  if (tombolMainLagi) {
-    tombolMainLagi.insertAdjacentElement('afterend', tombol);
+  // Sisipkan ke dalam grup tombol yang sama dengan Main Lagi, agar jarak (gap)
+  // antar tombol konsisten dan tidak dempet (sebelumnya tombol ini malah
+  // ditambahkan di luar .hasil-tombol-group sehingga jaraknya tidak diatur).
+  const grupTombol = hasilContainer.querySelector('.hasil-tombol-group');
+  if (grupTombol) {
+    grupTombol.appendChild(tombol);
   } else {
     hasilContainer.appendChild(tombol);
   }
@@ -375,8 +536,48 @@ function ulangiKuis() {
   // Bersihkan tombol ulang materi agar tidak muncul saat halaman hasil dibuka lagi
   const tombolUlang = document.getElementById('btn-ulang-materi');
   if (tombolUlang) tombolUlang.remove();
+
+  // Perbarui badge kesempatan & status kunci tiap level
+  renderStatusSemuaLevel();
 }
 
 
+
+// ============================================================
+// NOTIFIKASI MODERN (pengganti alert)
+// ============================================================
+function tampilkanNotifModern(icon, judul, pesan, autoClose = true) {
+  // Hapus notif lama
+  const lama = document.getElementById('notif-modern');
+  if (lama) lama.remove();
+
+  const notif = document.createElement('div');
+  notif.id = 'notif-modern';
+  notif.innerHTML = `
+    <div class="notif-card">
+      <div class="notif-icon">${icon}</div>
+      <div class="notif-body">
+        <div class="notif-judul">${judul}</div>
+        <div class="notif-pesan">${pesan}</div>
+      </div>
+      <button class="notif-tutup" onclick="document.getElementById('notif-modern').remove()">✕</button>
+    </div>
+  `;
+  document.body.appendChild(notif);
+  requestAnimationFrame(() => notif.classList.add('tampil'));
+
+  if (autoClose) {
+    setTimeout(() => {
+      notif.classList.remove('tampil');
+      setTimeout(() => notif.remove(), 350);
+    }, 3500);
+  }
+}
+
 // KICK-START: JALANKAN PROSES PERTAMA KALI 
 AMBIL_DATA_JSON();
+
+// Tampilkan status kesempatan tiap level sejak awal, lalu perbarui tiap detik
+// agar hitung mundur cooldown (reset kesempatan) berjalan secara langsung.
+renderStatusSemuaLevel();
+setInterval(renderStatusSemuaLevel, 1000);
